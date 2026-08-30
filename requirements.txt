@@ -1,0 +1,1 @@
+# SwiftRoute v0.1.0 uses only the Python 3.11+ standard library.

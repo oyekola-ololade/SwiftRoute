@@ -1,0 +1,104 @@
+{
+  "generated_at": "2026-08-30T21:11:58.173724Z",
+  "scope": "local synthetic simulation; not production capacity evidence",
+  "environment": {
+    "python": "3.12.13",
+    "platform": "Linux-6.18.35-x86_64-with-glibc2.39"
+  },
+  "profiles": [
+    {
+      "profile": "baseline",
+      "configuration": {
+        "creates": 150,
+        "replays": 30,
+        "reviews": 75,
+        "conflicts": 15,
+        "concurrency": 8
+      },
+      "requests": 270,
+      "duration_seconds": 0.709,
+      "throughput_requests_per_second": 380.62,
+      "latency_ms": {
+        "p50": 4.29,
+        "p95": 82.62,
+        "p99": 231.81,
+        "max": 333.78
+      },
+      "database_counts": {
+        "orders": 150,
+        "pending_review": 75,
+        "approved": 38,
+        "rejected": 37,
+        "created_events": 150,
+        "review_events": 75
+      },
+      "unexpected_response_count": 0,
+      "unexpected_response_samples": [],
+      "invariant_errors": {},
+      "passed": true
+    },
+    {
+      "profile": "contention",
+      "configuration": {
+        "creates": 400,
+        "replays": 80,
+        "reviews": 200,
+        "conflicts": 40,
+        "concurrency": 32
+      },
+      "requests": 720,
+      "duration_seconds": 2.062,
+      "throughput_requests_per_second": 349.14,
+      "latency_ms": {
+        "p50": 6.74,
+        "p95": 432.93,
+        "p99": 938.66,
+        "max": 1090.38
+      },
+      "database_counts": {
+        "orders": 400,
+        "pending_review": 200,
+        "approved": 100,
+        "rejected": 100,
+        "created_events": 400,
+        "review_events": 200
+      },
+      "unexpected_response_count": 0,
+      "unexpected_response_samples": [],
+      "invariant_errors": {},
+      "passed": true
+    },
+    {
+      "profile": "burst",
+      "configuration": {
+        "creates": 800,
+        "replays": 160,
+        "reviews": 400,
+        "conflicts": 80,
+        "concurrency": 64
+      },
+      "requests": 1440,
+      "duration_seconds": 4.362,
+      "throughput_requests_per_second": 330.13,
+      "latency_ms": {
+        "p50": 21.33,
+        "p95": 836.31,
+        "p99": 1532.98,
+        "max": 2158.56
+      },
+      "database_counts": {
+        "orders": 800,
+        "pending_review": 400,
+        "approved": 200,
+        "rejected": 200,
+        "created_events": 800,
+        "review_events": 400
+      },
+      "unexpected_response_count": 0,
+      "unexpected_response_samples": [],
+      "invariant_errors": {},
+      "passed": true
+    }
+  ],
+  "passed": true
+}

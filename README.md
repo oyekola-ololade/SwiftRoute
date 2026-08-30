@@ -1,132 +1,165 @@
 # SwiftRoute
 
-> **Evidence status: Concept / architecture specification — not implemented**
+> **Evidence status: Early implementation — tested local vertical slice, not production**
 
-SwiftRoute is a portfolio architecture exercise for a freight and shipment-operations platform. It explores how order intake, document approvals, courier tracking, notifications, payment records, and customer visibility could be joined into one system.
+SwiftRoute is an emerging freight-operations platform. This repository now contains a working first slice for validated order intake, idempotent creation, supervisor approval or rejection, SQLite persistence, and immutable audit-event recording.
 
-There is **no real client, deployed application, operating shipment volume, or measured business result behind this repository**.
+The wider shipment, courier, document, payment, notification, customer-portal, authentication, and PostgreSQL architecture remains proposed work.
 
-[Open the visual concept page](./index.html)
+[Open the visual project page](./index.html)
 
-## Intended problem
+## What is implemented
 
-Freight operations can involve disconnected intake forms, document reviews, courier systems, payment records, and customer updates. SwiftRoute proposes a system boundary for coordinating those activities without claiming that the system has been built.
+| Capability | Evidence | Status |
+|---|---|---|
+| JSON HTTP API | `swiftroute/api.py` | Implemented and locally tested |
+| Order validation | `swiftroute/db.py` | Implemented |
+| Idempotent order creation | Unique key plus canonical request hash | Implemented and concurrency-tested |
+| Supervisor review | Controlled pending → approved/rejected transition | Implemented and tested |
+| Audit events | Written in the same transaction as state changes | Implemented and invariant-tested |
+| SQLite persistence | `swiftroute/schema.sql` in WAL mode | Implemented for the local slice |
+| Unit and HTTP integration tests | `tests/` | 8 tests passing |
+| Synthetic stress simulations | `scripts/stress_simulation.py`, `evidence/` | Three profiles passing locally |
+| Container packaging | `Dockerfile` | Build definition present; image not published |
 
-## Proposed users
-
-- Operations staff
-- Supervisors
-- Compliance reviewers
-- Finance staff
-- Customers tracking their own shipments
-- System administrators
-
-## Proposed architecture
-
-Every component in this diagram is proposed unless a future implementation commit explicitly proves otherwise.
+## Implemented architecture
 
 ```mermaid
 flowchart TD
-    U["Web and mobile clients"] --> API["Proposed backend API"]
-    API --> AUTH["JWT authentication and RBAC"]
-    AUTH --> ORD["Order service"]
-    AUTH --> SHIP["Shipment service"]
-    AUTH --> DOC["Document approval service"]
-    AUTH --> PAY["Payment record service"]
-    ORD --> DB[("PostgreSQL")]
-    SHIP --> DB
-    DOC --> DB
-    PAY --> DB
-    API --> AUDIT["Audit log"]
-    AUDIT --> DB
-    N8N["Proposed n8n orchestration"] --> ORD
-    N8N --> SHIP
-    N8N --> DOC
-    N8N --> PAY
-    SHIP --> COURIER["Courier APIs"]
-    N8N --> MSG["Email and WhatsApp providers"]
-    DB --> PORTAL["Customer tracking portal"]
+    C["API client"] --> H["Python HTTP boundary"]
+    H --> V["Validation and idempotency"]
+    V --> O["Order service"]
+    O --> R{"Supervisor decision"}
+    R -->|Approve| A["Approved"]
+    R -->|Reject with reason| X["Rejected"]
+    O --> DB[("SQLite order state")]
+    A --> DB
+    X --> DB
+    O --> E["Transactional audit event"]
+    A --> E
+    X --> E
+    E --> DB
 ```
 
-See [docs/architecture.md](./docs/architecture.md) for the proposed component boundaries.
+See [the architecture document](./docs/architecture.md) for implemented and proposed boundaries.
 
-## Proposed capabilities
+## API surface
 
-| Domain | Proposed capability | Implementation status |
+| Method | Route | Purpose |
 |---|---|---|
-| Orders | Intake, validation, assignment, approval | Not built |
-| Shipments | Courier creation, milestones, ETA/status sync | Not built |
-| Documents | Generation, review, approval, download | Not built |
-| Notifications | Email and WhatsApp milestone updates | Not built |
-| Payments | Invoice and payment-status records | Not built |
-| Customer portal | Shipment, document, and notification visibility | Not built |
-| Administration | RBAC, settings, audit log | Not built |
-| Mobile experience | Operational and customer views | Not built |
+| `GET` | `/health` | Service health |
+| `GET` | `/metrics` | Current local database counts |
+| `POST` | `/orders` | Validate and create an order; requires `Idempotency-Key` |
+| `GET` | `/orders` | List orders with optional status and limit filters |
+| `GET` | `/orders/{id}` | Fetch one order |
+| `POST` | `/orders/{id}/review` | Approve or reject a pending order |
+| `GET` | `/orders/{id}/events` | Read its audit trail |
 
-## Proposed orchestration
+Full examples and error semantics are in [docs/proposed-api.md](./docs/proposed-api.md).
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant API
-    participant Workflow as n8n
-    participant Courier
-    participant Database
-    participant Customer
+## Run locally
 
-    Client->>API: Submit proposed order
-    API->>Database: Store pending order
-    API->>Workflow: Request validation and routing
-    Workflow->>Database: Record decision and audit event
-    Workflow->>Courier: Create shipment after approval
-    Courier-->>Workflow: Tracking reference
-    Workflow->>Database: Store shipment state
-    Workflow-->>Customer: Send milestone notification
+Requirements: Python 3.11 or newer. The current slice has no third-party runtime dependency.
+
+```bash
+cp .env.example .env
+python -m swiftroute.api
 ```
 
-This is a design sequence, not execution evidence.
+The default address is `http://127.0.0.1:8080` and the database is created at `data/swiftroute.db`.
+
+Create an order:
+
+```bash
+curl -i http://127.0.0.1:8080/orders \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: demo-order-0001' \
+  -d '{
+    "customer_name": "Demo Exporter",
+    "origin": "Lagos",
+    "destination": "Abuja",
+    "cargo_description": "Sealed textile cartons",
+    "weight_kg": 120
+  }'
+```
+
+Review the returned order ID:
+
+```bash
+curl -i http://127.0.0.1:8080/orders/ORDER_ID/review \
+  -H 'Content-Type: application/json' \
+  -d '{"decision":"approved","reviewer":"Demo Supervisor"}'
+```
+
+## Verification
+
+Run the deterministic test suite:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+Current result: **8 tests passed**. They cover HTTP behavior, validation, idempotent replay, conflicting idempotency payloads, review-state conflicts, rejection rules, audit trails, and 40 concurrent submissions sharing one idempotency key.
+
+Run the synthetic stress profiles:
+
+```bash
+python -m scripts.stress_simulation
+```
+
+The verified run on 2026-08-30 produced:
+
+| Profile | Requests | Concurrency | Result | Throughput | p95 latency |
+|---|---:|---:|---|---:|---:|
+| Baseline | 270 | 8 | PASS | 380.62 req/s | 82.62 ms |
+| Contention | 720 | 32 | PASS | 349.14 req/s | 432.93 ms |
+| Burst | 1,440 | 64 | PASS | 330.13 req/s | 836.31 ms |
+
+Across all **2,430 synthetic requests**, the final run recorded zero unexpected responses. Replayed keys did not create duplicate orders, competing second reviews returned HTTP 409, and stored order and audit-event counts matched the expected invariants.
+
+These are local simulations on one machine using loopback HTTP and SQLite. They are **not** production load tests, deployment evidence, an SLA, or a capacity guarantee. See [the full Markdown report](./evidence/stress-report.md), [raw JSON](./evidence/stress-report.json), and [the remediation log](./evidence/REMEDIATION.md).
 
 ## Repository structure
 
 ```text
 .
+├── swiftroute/
+│   ├── api.py
+│   ├── db.py
+│   └── schema.sql
+├── tests/
+│   ├── test_api.py
+│   └── test_repository.py
+├── scripts/
+│   └── stress_simulation.py
+├── evidence/
+│   ├── stress-report.json
+│   ├── stress-report.md
+│   └── REMEDIATION.md
 ├── docs/
 │   ├── architecture.md
 │   ├── proposed-api.md
 │   ├── proposed-data-model.md
 │   └── roadmap.md
-├── .env.example
-├── index.html
-├── LICENSE
-└── README.md
+├── Dockerfile
+├── Makefile
+└── index.html
 ```
 
-## Design decisions
+## Evidence boundary
 
-- Separate customer-facing access from internal operational permissions.
-- Put authorization and audit logging at the API boundary.
-- Keep courier, email, and WhatsApp providers behind adapters.
-- Use workflow orchestration for cross-system coordination, not as the sole system of record.
-- Model idempotency, retries, and reconciliation before implementing external writes.
-- Require human approval for sensitive document, payment, and shipment transitions.
+This repository does **not** claim:
 
-## What is deliberately absent
+- A production deployment or public hosted API
+- Authentication, authorization, tenant isolation, or PostgreSQL support
+- Real courier, WhatsApp, email, document, payment, or storage integrations
+- A web dashboard, mobile application, or customer portal
+- Real shipments, users, clients, revenue, uptime, or business outcomes
+- Security certification or production performance
 
-- Fabricated source code or screenshots
-- Fake client branding or testimonials
-- Invented shipment metrics or time savings
-- Claims of FedEx, DHL, WhatsApp, or payment-provider integration
-- Claims of deployment, security testing, users, traffic, or revenue
+## Next engineering gate
 
-## Next implementation gate
-
-The concept should only be upgraded to a build after a bounded vertical slice exists and is verified. The recommended first slice is:
-
-```text
-Order intake → validation → PostgreSQL record → supervisor review → audit event
-```
-
-A future implementation should include source code, migrations, tests, synthetic test evidence, setup instructions, and an updated status register.
+The next credible slice is authentication and role-based access around the existing order-review boundary, followed by PostgreSQL migration and integration tests. Courier writes should remain out of scope until idempotency, webhook verification, reconciliation, and provider failure handling are implemented.
 
 ## Author
 
@@ -136,4 +169,3 @@ AI Systems & Integration Engineer
 - [GitHub](https://github.com/oyekola-ololade)
 - [LinkedIn](https://www.linkedin.com/in/ololade-oyekola-5b1797397/)
 - [Email](mailto:oyekolaololade69@gmail.com)
-

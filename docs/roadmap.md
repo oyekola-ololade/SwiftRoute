@@ -1,40 +1,48 @@
-# Proposed Implementation Roadmap
+# SwiftRoute Evidence-Gated Roadmap
 
-All work remains unchecked because SwiftRoute has not been implemented.
+## Phase 0 — first vertical slice: complete
 
-## Phase 1 — Bounded vertical slice
+- Working Python JSON API
+- SQLite schema and repository
+- Validated, idempotent order creation
+- Supervisor approval and rejection
+- Transactional audit events
+- Unit and HTTP integration tests
+- Three reproducible stress profiles
+- Docker build definition
 
-- [ ] Define order and audit-event schemas
-- [ ] Create PostgreSQL migrations
-- [ ] Build authenticated order-intake API
-- [ ] Add supervisor review action
-- [ ] Record immutable audit events
-- [ ] Add unit and integration tests
-- [ ] Publish synthetic test evidence
+Status may now be described as **early implementation**, not concept-only.
 
-## Phase 2 — Shipment state
+## Phase 1 — access and database foundation
 
-- [ ] Add shipment and milestone model
-- [ ] Create provider-neutral courier adapter
-- [ ] Implement one sandbox courier integration
-- [ ] Verify webhook signatures
-- [ ] Add reconciliation and retry behavior
+- Authentication and role-based authorization
+- Separate operations and supervisor permissions
+- PostgreSQL repository with migrations
+- Integration tests against PostgreSQL
+- Structured request IDs and application logs
+- CI workflow for tests and simulation smoke profile
 
-## Phase 3 — Documents and notifications
+## Phase 2 — shipment vertical slice
 
-- [ ] Add controlled document storage
-- [ ] Implement review/approval flow
-- [ ] Add one sandbox notification provider
-- [ ] Add failure escalation and delivery records
+- Shipment state model
+- Provider-neutral courier adapter contract
+- One sandbox courier integration
+- Idempotent external writes
+- Signed webhook verification
+- Reconciliation and exception records
 
-## Phase 4 — Payments and customer portal
+## Phase 3 — documents and notifications
 
-- [ ] Add invoice/payment records
-- [ ] Implement manual-payment reconciliation
-- [ ] Build customer-scoped tracking portal
-- [ ] Test authorization and data isolation
+- Controlled document metadata and access
+- Approval workflow
+- Email or WhatsApp adapter with delivery records
+- Retry and dead-letter behavior
 
-## Upgrade rule
+## Phase 4 — customer visibility
 
-Do not change the project label from **Concept / Specification** until implementation files and executed test evidence support a stronger status.
+- Tenant-isolated customer reads
+- Authenticated tracking portal
+- Shipment milestones and document visibility
+- Accessibility and security review
 
+No phase should be marked complete without source, tests, reproducible evidence, and an updated limitation boundary.

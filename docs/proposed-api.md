@@ -1,55 +1,79 @@
-# Proposed API Surface
+# SwiftRoute API Contract
 
-> Specification only. No API implementation is included.
+## Implemented routes
 
-## Authentication
+All bodies are JSON. Mutating order creation requires an `Idempotency-Key` header containing 8–160 characters.
 
-- `POST /api/auth/login`
-- `POST /api/auth/refresh`
-- `POST /api/auth/logout`
+### `POST /orders`
 
-## Orders
+```json
+{
+  "customer_name": "Demo Exporter",
+  "origin": "Lagos",
+  "destination": "Abuja",
+  "cargo_description": "Sealed textile cartons",
+  "weight_kg": 120
+}
+```
 
-- `GET /api/orders`
-- `POST /api/orders`
-- `GET /api/orders/{order_id}`
-- `PATCH /api/orders/{order_id}`
-- `POST /api/orders/{order_id}/approve`
+- `201`: new order created
+- `200`: exact idempotent replay; `created` is false
+- `400`: validation or missing/invalid key
+- `409`: key reused for a different normalized payload
 
-## Shipments
+### `GET /orders?status=pending_review&limit=50`
 
-- `GET /api/shipments`
-- `POST /api/shipments`
-- `GET /api/shipments/{shipment_id}`
-- `GET /api/shipments/{shipment_id}/tracking`
-- `POST /api/shipments/{shipment_id}/reconcile`
+Returns at most 200 orders. Status may be `pending_review`, `approved`, or `rejected`.
 
-## Documents
+### `GET /orders/{id}`
 
-- `GET /api/shipments/{shipment_id}/documents`
-- `POST /api/documents/{document_id}/approve`
-- `POST /api/documents/{document_id}/reject`
-- `GET /api/documents/{document_id}/download`
+Returns one order or `404`.
 
-## Payments
+### `POST /orders/{id}/review`
 
-- `GET /api/invoices`
-- `GET /api/invoices/{invoice_id}`
-- `POST /api/invoices/{invoice_id}/record-payment`
+Approval:
 
-## Administration
+```json
+{"decision":"approved","reviewer":"Supervisor One"}
+```
 
-- `GET /api/audit-events`
-- `GET /api/dashboard/metrics`
+Rejection:
 
-## Required implementation controls
+```json
+{
+  "decision":"rejected",
+  "reviewer":"Supervisor One",
+  "reason":"Required documentation is incomplete"
+}
+```
 
-- Authorization checks
-- Input validation
-- Idempotency on external writes
-- Audit events
-- Pagination and filtering
-- Stable error contracts
-- Rate limiting
-- Tests for unauthorized cross-customer access
+Only a `pending_review` order may transition. A repeated or competing review returns `409`.
 
+### `GET /orders/{id}/events`
+
+Returns the order's ordered audit events.
+
+### `GET /health`
+
+Returns service name, version, and current health status.
+
+### `GET /metrics`
+
+Returns current local counts for orders, statuses, creation events, and review events. This is a diagnostic endpoint, not a production monitoring system.
+
+## Error envelope
+
+```json
+{
+  "error": {
+    "code": "validation_error",
+    "message": "customer_name must be a string"
+  }
+}
+```
+
+Expected codes are `validation_error`, `not_found`, `conflict`, and `internal_error`.
+
+## Proposed routes
+
+Authentication, customers, shipments, documents, courier callbacks, payments, notifications, and portal routes remain design work. They should not be treated as implemented until source, tests, and evidence are added.

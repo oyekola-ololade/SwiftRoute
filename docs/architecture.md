@@ -1,91 +1,82 @@
-# SwiftRoute Proposed Architecture
+# SwiftRoute Architecture
 
 ## Status
 
-This is an architecture specification. No component described here is represented as deployed or production-tested.
+SwiftRoute is an **early implementation**. The order-intake and supervisor-review slice below exists in source code and has been tested locally. Everything in the proposed-extension table remains unimplemented.
 
-## Context map
+## Implemented component map
 
 ```mermaid
 flowchart LR
-    STAFF["Internal staff"] --> WEB["Operations web app"]
-    CUSTOMER["Customer"] --> PORTAL["Customer portal"]
-    WEB --> API["Backend API"]
-    PORTAL --> API
-    API --> AUTH["Authentication and RBAC"]
-    API --> CORE["Orders, shipments, documents, payments"]
-    CORE --> PG[("PostgreSQL")]
-    CORE --> AUDIT["Audit events"]
-    ORCH["n8n orchestration"] --> CORE
-    ORCH --> COURIER["Courier adapter"]
-    ORCH --> NOTIFY["Notification adapter"]
-    COURIER --> EXT1["Courier providers"]
-    NOTIFY --> EXT2["Email / WhatsApp providers"]
+    CLIENT["JSON API client"] --> HTTP["Threaded HTTP server"]
+    HTTP --> VALIDATE["Request validation"]
+    VALIDATE --> IDEM["Idempotency guard"]
+    IDEM --> SERVICE["Order state service"]
+    SERVICE --> SQLITE[("SQLite + WAL")]
+    SERVICE --> REVIEW["Review transition guard"]
+    REVIEW --> SQLITE
+    SERVICE --> AUDIT["Audit-event writer"]
+    REVIEW --> AUDIT
+    AUDIT --> SQLITE
 ```
 
-## Proposed boundaries
+### HTTP boundary
 
-### Client applications
+`swiftroute/api.py` implements bounded JSON parsing, route dispatch, consistent error responses, body-size limits, order endpoints, and a configurable connection backlog. It uses Python's standard library `ThreadingHTTPServer`.
 
-- Internal operations dashboard
-- Customer portal
-- Optional mobile client
+### Domain and persistence boundary
 
-Clients should not communicate directly with courier, messaging, storage, or database services.
+`swiftroute/db.py` owns validation, canonical request hashing, idempotent creation, state-transition rules, and audit persistence. Each write opens `BEGIN IMMEDIATE`; the order mutation and matching audit event commit or roll back together.
 
-### Backend API
+### State model
 
-Proposed responsibilities:
+The current state machine is deliberately small:
 
-- Authentication and authorization
-- Validation
-- Stable domain operations
-- Idempotency keys for mutating requests
-- Audit-event creation
-- Provider-neutral contracts for workflows
+```mermaid
+stateDiagram-v2
+    [*] --> pending_review: validated creation
+    pending_review --> approved: supervisor approval
+    pending_review --> rejected: supervisor rejection with reason
+    approved --> [*]
+    rejected --> [*]
+```
 
-### PostgreSQL
+There is no transition out of `approved` or `rejected` in this slice. A second review attempt returns a conflict.
 
-Proposed as the authoritative system of record for users, customers, orders, shipments, documents, invoices, state transitions, and audit events.
+### Idempotency behavior
 
-### n8n
+- New key plus valid payload: one order and one `order.created` event are committed.
+- Same key plus the same normalized payload: the original order is returned.
+- Same key plus a different normalized payload: the request returns a conflict.
+- The unique database constraint is the final concurrency guard.
 
-Proposed for event coordination:
+## Implemented reliability controls
 
-- Order-intake routing
-- Document-generation requests
-- Courier status polling
-- Milestone notifications
-- Payment reminders
-- Exception escalation
+| Control | Implementation |
+|---|---|
+| Request validation | Type, length, numeric-bound, and rejection-reason checks |
+| Request-size limit | 64 KiB JSON maximum |
+| Idempotent creation | Unique key and SHA-256 canonical request hash |
+| Atomic audit | Audit event in the same transaction as the order mutation |
+| State control | Only pending orders may be approved or rejected |
+| Lock handling | SQLite 30-second busy timeout and WAL mode |
+| Burst acceptance | HTTP connection backlog set to 256 after stress-test discovery |
+| Reproducibility | Standard-library runtime and checked-in simulation script |
 
-n8n should not silently replace database state controls or authorization.
+## Proposed extensions
 
-### Provider adapters
+| Component | Status | Required gate |
+|---|---|---|
+| Authentication and RBAC | Not implemented | Identity model, password/token policy, authorization tests |
+| PostgreSQL repository | Not implemented | Migration, transaction parity, integration environment |
+| Shipment service | Not implemented | State model and idempotent courier boundary |
+| Courier adapters | Not implemented | Sandbox contract tests, webhook signatures, reconciliation |
+| Documents | Not implemented | Storage controls, signed access, approval policy |
+| Notifications | Not implemented | Provider adapters, retries, delivery records |
+| Payments | Not implemented | Separate ledger and reconciliation design |
+| Customer portal | Not implemented | Tenant isolation and authenticated read model |
+| n8n orchestration | Not implemented | Stable API contracts and failure queues first |
 
-Courier and notification providers should be isolated behind adapters so provider changes do not leak across the domain model.
+## Deployment boundary
 
-## Reliability design targets
-
-These are targets for future implementation, not existing features:
-
-- Idempotent external writes
-- Exponential-backoff retries
-- Dead-letter or exception queues
-- Provider webhook signature verification
-- State reconciliation jobs
-- Immutable audit events
-- Human review for sensitive transitions
-- Monitoring for stale shipments and failed notifications
-
-## Security design targets
-
-- Short-lived access tokens and rotating refresh tokens
-- Role-based authorization at every domain action
-- Encrypted transport
-- Secret storage outside source control
-- Customer data partitioning
-- Document access controls
-- Signed download URLs
-- Auditability of approval and payment changes
-
+The Dockerfile packages the current service, but this repository does not contain proof of a built image, hosted deployment, TLS, reverse proxy, backup policy, monitoring, or production database. SQLite is appropriate for this bounded local slice, not presented as the final multi-user platform datastore.

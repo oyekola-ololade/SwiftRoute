@@ -1,40 +1,48 @@
-# Proposed Data Model
+# SwiftRoute Data Model
 
-> Specification only. No migration or operating database is included.
+## Implemented SQLite schema
 
-## Entities
+### `orders`
 
-- `users`
-- `roles`
-- `customers`
-- `orders`
-- `order_items`
-- `shipments`
-- `shipment_events`
-- `documents`
-- `document_reviews`
-- `invoices`
-- `payments`
-- `notifications`
-- `provider_operations`
-- `audit_events`
+| Field | Purpose |
+|---|---|
+| `id` | UUID primary key |
+| `reference` | Human-facing `SWR-` reference |
+| `idempotency_key` | Unique mutation key |
+| `request_hash` | Canonical normalized-payload hash |
+| `customer_name` | Current bounded customer label |
+| `origin`, `destination` | Route labels |
+| `cargo_description` | Bounded cargo summary |
+| `weight_kg` | Optional positive numeric weight |
+| `status` | `pending_review`, `approved`, or `rejected` |
+| `version` | State-change counter |
+| review fields | Reviewer, reason, and timestamp |
+| timestamps | UTC creation/review times |
 
-## Key relationships
+### `audit_events`
+
+Stores a UUID, order foreign key, event type, actor, JSON details, and UTC timestamp. Order creation and review events are written inside the same transactions as their state mutations.
 
 ```mermaid
 erDiagram
-    CUSTOMER ||--o{ ORDER : places
-    ORDER ||--o{ SHIPMENT : produces
-    SHIPMENT ||--o{ SHIPMENT_EVENT : records
-    SHIPMENT ||--o{ DOCUMENT : requires
-    DOCUMENT ||--o{ DOCUMENT_REVIEW : receives
-    ORDER ||--o{ INVOICE : generates
-    INVOICE ||--o{ PAYMENT : receives
-    CUSTOMER ||--o{ NOTIFICATION : receives
-    USER ||--o{ AUDIT_EVENT : performs
+    ORDERS ||--o{ AUDIT_EVENTS : records
+    ORDERS {
+        text id PK
+        text reference UK
+        text idempotency_key UK
+        text status
+        integer version
+        text created_at
+    }
+    AUDIT_EVENTS {
+        text id PK
+        text order_id FK
+        text event_type
+        text actor
+        text created_at
+    }
 ```
 
-## State considerations
+## Proposed PostgreSQL model
 
-Future implementation should define explicit transition rules instead of accepting arbitrary status strings. Each transition should retain actor, timestamp, source, previous state, next state, and correlation/idempotency identifiers.
-
+The earlier platform design also identified users, roles, customers, shipments, documents, invoices, notification records, and provider events. Those tables are not included in the current implementation. Migration should preserve the tested idempotency, transaction, state-transition, and audit invariants before adding new domains.
