@@ -1,6 +1,16 @@
 # SwiftRoute v0.2 — Proposed Next Engineering Gate
 
+[← Main README](../../README.md) · [Proposed architecture](ARCHITECTURE.md)
+
 **Status:** PROPOSED · not implemented
+
+## Contents
+
+- [Proposed scope](#proposed-scope)
+- [Architecture](#architecture)
+- [Why this comes before courier integrations](#why-this-comes-before-courier-integrations)
+- [Acceptance requirements](#acceptance-requirements)
+- [Excluded scope](#not-included-merely-because-it-appears-in-the-blueprint)
 
 ## Proposed scope
 
@@ -10,6 +20,12 @@ The next credible increment is deliberately narrower than the original blueprint
 2. role-based access control for operational/reviewer actions;
 3. PostgreSQL migration from the local SQLite evidence store;
 4. integration tests proving existing idempotency/state/audit invariants survive the migration.
+
+## Architecture
+
+[Open the v0.2 proposed architecture →](ARCHITECTURE.md)
+
+The diagram is a design target, not current implementation evidence.
 
 ## Why this comes before courier integrations
 
@@ -30,6 +46,4 @@ External courier writes add another failure/idempotency/reconciliation boundary.
 
 Courier APIs, documents, payments, notifications and customer portals remain later work unless explicitly implemented.
 
-## Media
-
-Proposed version. No demo/screenshot placeholders until this becomes an implemented current release.
+Proposed version: no demo/screenshot placeholders until this becomes an implemented current release.
