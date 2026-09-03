@@ -1,7 +1,19 @@
 # SwiftRoute v0.1 — Local Order-Control Snapshot
 
+[← Main README](../../README.md) · [Implemented architecture](ARCHITECTURE.md)
+
 **Status:** **CURRENT IMPLEMENTED / VERIFIED LOCALLY**  
 **Date:** 2026-08-30 evidence snapshot
+
+## Contents
+
+- [Implemented scope](#implemented-scope)
+- [Architecture](#architecture)
+- [Verification evidence](#verification-evidence)
+- [Failure / remediation story](#preserved-failure--remediation-story)
+- [Not implemented](#not-implemented-in-v01)
+- [Evidence boundary](#evidence-boundary)
+- [Media](#media)
 
 ## Implemented scope
 
@@ -17,6 +29,12 @@
 | SQLite WAL persistence | implemented |
 | Synthetic stress harness | implemented |
 | Docker build definition | present; image not published |
+
+## Architecture
+
+[Open the v0.1 implemented architecture →](ARCHITECTURE.md)
+
+The diagram matches the bounded Python/SQLite slice represented by the current code and tests.
 
 ## Verification evidence
 
@@ -54,5 +72,6 @@ Current-version media locations:
 
 - [`../../evidence/current/demo/README.md`](../../evidence/current/demo/README.md)
 - [`../../evidence/current/screenshots/README.md`](../../evidence/current/screenshots/README.md)
+- `../../assets/local-scope-and-stress.svg`
 
-Existing architecture/stress SVG evidence remains explanatory/measured evidence, not a replacement for a genuine current demo.
+Existing architecture/stress evidence remains explanatory/measured evidence, not a replacement for a genuine current demo.
