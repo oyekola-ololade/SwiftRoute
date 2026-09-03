@@ -10,6 +10,26 @@ The wider shipment, courier, document, payment, notification, customer-portal, a
 
 <p align="center"><img src="assets/local-scope-and-stress.svg" width="100%" alt="SwiftRoute implemented local scope and synthetic stress evidence"></p>
 
+## Table of contents
+
+- [What is implemented](#what-is-implemented)
+- [Version / scope history](#version--scope-history)
+- [Implemented architecture](#implemented-architecture)
+- [API surface](#api-surface)
+- [Run locally](#run-locally)
+- [Verification](#verification)
+- [Evidence boundary](#evidence-boundary)
+- [Next engineering gate](#next-engineering-gate)
+- [Author](#author)
+
+### Version / architecture quick links
+
+| Record | Status | README | Architecture |
+|---|---|---|---|
+| Blueprint v1.0 | Proposed broad platform design | [open](versions/blueprint-v1.0/README.md) | [diagram](versions/blueprint-v1.0/ARCHITECTURE.md) |
+| v0.1 | **Current implemented / verified locally** | [open](versions/v0.1/README.md) | [diagram](versions/v0.1/ARCHITECTURE.md) |
+| v0.2 | Proposed next engineering gate | [open](versions/v0.2-proposed/README.md) | [diagram](versions/v0.2-proposed/ARCHITECTURE.md) |
+
 ## What is implemented
 
 | Capability | Evidence | Status |
@@ -23,6 +43,23 @@ The wider shipment, courier, document, payment, notification, customer-portal, a
 | Unit + HTTP tests | `tests/` | 8 tests passing |
 | Synthetic stress | `scripts/stress_simulation.py`, `evidence/` | three profiles passing locally |
 | Container packaging | `Dockerfile` | build definition present; image not published |
+
+## Version / scope history
+
+### Blueprint v1.0
+A broad freight/logistics system design covering web/mobile interfaces, APIs, auth/RBAC, PostgreSQL, n8n, couriers, documents, payments, notifications and analytics. It is design evidence, not implemented scope.
+
+### v0.1 current local slice
+The actual implemented boundary is deliberately narrower:
+
+`order intake → validation → idempotent creation → supervisor review → transactional audit event`
+
+This boundary has source, tests and local synthetic stress evidence.
+
+### v0.2 proposed
+The next engineering gate is authentication + RBAC around the existing API, followed by PostgreSQL migration while preserving the v0.1 idempotency/state/audit invariants.
+
+Each record has its own README and architecture page under [`versions/`](versions/).
 
 ## Implemented architecture
 
